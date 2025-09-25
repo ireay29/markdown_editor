@@ -156,13 +156,13 @@ function App() {
   }, [saveFile, saveAs, readFile, canSave, currentFileName, isModified]);
 
   const handlePreviewResize = (delta: number) => {
-    const newWidth = Math.max(300, Math.min(800, previewWidth + delta));
+    const newWidth = Math.max(300, previewWidth + delta);
     setPreviewWidth(newWidth);
   };
 
   return (
     <Layout onEditorNavigation={handleEditorNavigation}>
-      <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-gray-900">
+      <div className="flex-1 flex flex-col min-w-0">
         {enableSyntaxHighlight ? (
           <CodeMirrorEditor ref={codeMirrorEditorRef} />
         ) : (
@@ -171,7 +171,7 @@ function App() {
         <SyntaxErrorPanel />
       </div>
       <div
-        className={`transition-all duration-300 ease-in-out bg-white dark:bg-gray-900 ${
+        className={`transition-all duration-300 ease-in-out ${
           previewVisible ? 'flex-shrink-0' : 'w-0'
         }`}
         style={{ width: previewVisible ? `${previewWidth}px` : '0px' }}
@@ -183,9 +183,8 @@ function App() {
               onResize={handlePreviewResize}
               className="flex-shrink-0"
               minSize={300}
-              maxSize={800}
             />
-            <div className="w-full bg-white dark:bg-gray-900">
+            <div className="w-full h-full">
               <PreviewPane />
             </div>
           </>

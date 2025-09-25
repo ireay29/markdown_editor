@@ -8,13 +8,10 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ onEditorNavigation }) => {
-  const { sidebarActiveTab, setSidebarActiveTab, sidebarWidth } = useUIStore();
+  const { sidebarActiveTab, setSidebarActiveTab } = useUIStore();
 
   return (
-    <div
-      className="bg-secondary-50 dark:bg-gray-800 border-r border-secondary-200 dark:border-gray-700 flex flex-col"
-      style={{ width: `${sidebarWidth}px` }}
-    >
+    <div className="h-full bg-secondary-50 dark:bg-gray-800 border-r border-secondary-200 dark:border-gray-700 flex flex-col">
       <div className="flex border-b border-secondary-200 dark:border-gray-700">
         <button
           className={`px-4 py-2 text-sm font-medium ${
