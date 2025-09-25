@@ -79,7 +79,7 @@ export const MarkdownRenderer: React.FC = () => {
 
       {/* レンダリング結果 */}
       <div 
-        className="prose prose-sm dark:prose-invert max-w-none
+        className="prose prose-sm dark:prose-invert max-w-none overflow-y-auto
           prose-headings:text-secondary-900 dark:prose-headings:text-secondary-100
           prose-p:text-secondary-700 dark:prose-p:text-secondary-300
           prose-a:text-primary-600 dark:prose-a:text-primary-400
