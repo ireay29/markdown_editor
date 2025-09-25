@@ -156,7 +156,7 @@ function App() {
   }, [saveFile, saveAs, readFile, canSave, currentFileName, isModified]);
 
   const handlePreviewResize = (delta: number) => {
-    const newWidth = Math.max(300, Math.min(800, previewWidth + delta));
+    const newWidth = Math.max(300, previewWidth + delta);
     setPreviewWidth(newWidth);
   };
 
@@ -183,7 +183,6 @@ function App() {
               onResize={handlePreviewResize}
               className="flex-shrink-0"
               minSize={300}
-              maxSize={800}
             />
             <div className="w-full h-full">
               <PreviewPane />
