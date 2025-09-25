@@ -37,7 +37,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onEditorNavigation }) 
         >
           {sidebarVisible && (
             <>
-              <div className="w-full">
+              <div className="h-full">
                 <Sidebar onEditorNavigation={onEditorNavigation} />
               </div>
               <PanelResizer
