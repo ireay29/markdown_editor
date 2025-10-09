@@ -4,13 +4,22 @@ A powerful Markdown editor built with Tauri, React, and TypeScript featuring blo
 
 ## Features
 
-- 📝 Rich Markdown editing with CodeMirror 6
-- 🔄 Real-time preview with syntax highlighting
-- 🎯 Block-level drag & drop reordering
-- 🔍 Document outline navigation
-- 📊 Variable system for dynamic content
-- ⚡ Syntax checking and error detection
-- 🎨 Modern UI with Tailwind CSS
+- 📝 **Rich Markdown Editing**: Powered by CodeMirror 6 for a robust and extensible editing experience, including multi-language syntax highlighting.
+- 🔄 **Real-time Preview**: Instantly see your Markdown rendered as you type.
+- 🎯 **Block Management**: Drag & drop functionality to easily reorder Markdown blocks, enhancing content organization.
+- 🔍 **Document Outline Navigation**: Quickly navigate through your document using an automatically generated outline.
+- 📊 **Variable System**: Define and use variables in the format `{{variable}}` for dynamic content generation, ideal for LLM prompts and templates.
+- ⚡ **Syntax Checking**: Real-time validation against GitHub Flavored Markdown (GFM) specifications, with immediate error feedback.
+- 🎨 **Modern UI**: A clean and responsive user interface built with Tailwind CSS.
+
+## Technology Stack
+
+-   **Tauri**: For building cross-platform desktop applications using web technologies.
+-   **React**: A JavaScript library for building user interfaces.
+-   **TypeScript**: A typed superset of JavaScript that compiles to plain JavaScript.
+-   **CodeMirror 6**: A versatile text editor implemented in JavaScript for the browser.
+-   **Tailwind CSS**: A utility-first CSS framework for rapidly building custom designs.
+-   **Rust**: A language empowering everyone to build reliable and efficient software (used for Tauri's backend).
 
 ## Development Commands
 
