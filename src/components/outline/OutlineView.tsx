@@ -81,23 +81,25 @@ export const OutlineView: React.FC<OutlineViewProps> = ({ onHeadingClick }) => {
 
   if (!outline || outline.length === 0) {
     return (
-      <div className="p-4 text-secondary-500 dark:text-secondary-400 text-sm">
-        <div className="flex items-center justify-between mb-2">
+      <div className="flex h-full flex-col p-4 text-sm text-secondary-500 dark:text-secondary-400">
+        <div className="mb-2 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-secondary-700 dark:text-secondary-300">
             文書アウトライン
           </h3>
         </div>
-        <div className="text-center py-8">
-          <p>見出しが見つかりません</p>
-          <p className="text-xs mt-1">見出し (# ## ###) を追加するとアウトラインが表示されます</p>
+        <div className="flex flex-1 items-center justify-center text-center">
+          <div>
+            <p>見出しが見つかりません</p>
+            <p className="mt-1 text-xs">見出し (# ## ###) を追加するとアウトラインが表示されます</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-2">
+    <div className="flex h-full flex-col p-4">
+      <div className="mb-2 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-secondary-700 dark:text-secondary-300">
           文書アウトライン
         </h3>
@@ -105,7 +107,7 @@ export const OutlineView: React.FC<OutlineViewProps> = ({ onHeadingClick }) => {
           {outline.length} 個の見出し
         </span>
       </div>
-      <div className="space-y-1 max-h-96 overflow-y-auto">
+      <div className="flex-1 space-y-1 overflow-y-auto pr-1">
         {outline.map((heading) => (
           <HeadingItem
             key={heading.id}
