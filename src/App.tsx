@@ -185,7 +185,7 @@ function App() {
               minSize={300}
               maxSize={800}
             />
-            <div className="w-full bg-white dark:bg-gray-900">
+            <div className="flex h-full w-full flex-col bg-white dark:bg-gray-900">
               <PreviewPane />
             </div>
           </>
