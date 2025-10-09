@@ -184,7 +184,7 @@ function App() {
               className="flex-shrink-0"
               minSize={300}
             />
-            <div className="w-full h-full">
+            <div className="flex h-full w-full flex-col">
               <PreviewPane />
             </div>
           </>
