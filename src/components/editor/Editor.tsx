@@ -153,6 +153,7 @@ export const Editor: React.FC = () => {
           onSelect={handleSelectionChange}
           onClick={handleSelectionChange}
           onKeyUp={handleSelectionChange}
+          wrap={wordWrap ? 'soft' : 'off'}
           className={`flex-1 resize-none border-none outline-none p-4 font-mono bg-transparent text-secondary-900 dark:text-secondary-100 ${
             wordWrap ? 'whitespace-pre-wrap' : 'whitespace-pre overflow-x-auto'
           }`}

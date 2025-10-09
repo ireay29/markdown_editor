@@ -24,7 +24,7 @@ interface CodeMirrorEditorProps {
 
 export const CodeMirrorEditor = forwardRef<EditorNavigationRef, CodeMirrorEditorProps>(({ className = '' }, ref) => {
   const { content, setContent, setIsModified } = useEditorStore();
-  const { theme } = useUIStore();
+  const { theme, wordWrap } = useUIStore();
   const { effectiveTheme } = useTheme();
   const { debouncedParse } = useMarkdownParser();
   const editorRef = useRef<HTMLDivElement>(null);
@@ -94,6 +94,10 @@ export const CodeMirrorEditor = forwardRef<EditorNavigationRef, CodeMirrorEditor
       }),
     ];
 
+    if (wordWrap) {
+      extensions.push(EditorView.lineWrapping);
+    }
+
     // Dark theme support (add before custom theme to allow overrides)
     if (effectiveTheme === 'dark') {
       extensions.push(oneDark);
@@ -150,7 +154,7 @@ export const CodeMirrorEditor = forwardRef<EditorNavigationRef, CodeMirrorEditor
       view.destroy();
       viewRef.current = null;
     };
-  }, [theme, effectiveTheme]); // Recreate when theme or effectiveTheme changes
+  }, [theme, effectiveTheme, wordWrap]); // Recreate when theme, effectiveTheme, or wordWrap changes
 
   // Update content when it changes externally (e.g., from file loading)
   useEffect(() => {
