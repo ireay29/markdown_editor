@@ -383,12 +383,12 @@ export const BlockViewer: React.FC = () => {
 
     if ((viewMode === 'blocks' && displayBlocks.length === 0) || (viewMode === 'sections' && displaySections.length === 0)) {
       return (
-        <div className="p-4 text-center text-secondary-500 dark:text-secondary-400">
+        <div className="flex h-full flex-col items-center justify-center p-4 text-center text-secondary-500 dark:text-secondary-400">
           <div className="mb-2">
-            <GripVertical className="w-8 h-8 mx-auto text-secondary-300" />
+            <GripVertical className="mx-auto h-8 w-8 text-secondary-300" />
           </div>
           <p className="text-sm">{viewMode === 'blocks' ? 'ブロック' : 'セクション'}が見つかりません</p>
-          <p className="text-xs mt-1">
+          <p className="mt-1 text-xs">
             {viewMode === 'blocks'
               ? 'Markdownを書き始めるとブロック構造が表示されます'
               : 'H1見出し (# タイトル) を追加するとセクションが作成されます'
@@ -402,9 +402,9 @@ export const BlockViewer: React.FC = () => {
     const sortedSections = displaySections; // Already sorted by the grouping logic
 
     return (
-      <div className="p-4">
+      <div className="flex h-full flex-col p-4">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-secondary-700 dark:text-secondary-300">
             文書{viewMode === 'blocks' ? 'ブロック' : 'セクション'} ({viewMode === 'blocks' ? displayBlocks.length : sections.length})
           </h3>
@@ -449,47 +449,49 @@ export const BlockViewer: React.FC = () => {
         </div>
 
         {/* Drag and Drop List */}
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          {viewMode === 'blocks' ? (
-            <SortableContext
-              items={sortedBlocks.map(block => block.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {sortedBlocks.map((block) => (
-                  <BlockItem
-                    key={block.id}
-                    block={block}
-                    isSelected={selectedBlockId === block.id}
-                    onSelect={setSelectedBlockId || (() => {})}
-                    onDelete={deleteBlock || (() => console.warn('Delete not available'))}
-                    onDuplicate={duplicateBlock || (() => console.warn('Duplicate not available'))}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          ) : (
-            <SortableContext
-              items={sortedSections.map(section => section.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {sortedSections.map((section) => (
-                  <SectionItem
-                    key={section.id}
-                    section={section}
-                    isSelected={selectedBlockId === section.id}
-                    onSelect={setSelectedBlockId || (() => {})}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          )}
-        </DndContext>
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            {viewMode === 'blocks' ? (
+              <SortableContext
+                items={sortedBlocks.map(block => block.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="flex-1 space-y-2 overflow-y-auto pr-1">
+                  {sortedBlocks.map((block) => (
+                    <BlockItem
+                      key={block.id}
+                      block={block}
+                      isSelected={selectedBlockId === block.id}
+                      onSelect={setSelectedBlockId || (() => {})}
+                      onDelete={deleteBlock || (() => console.warn('Delete not available'))}
+                      onDuplicate={duplicateBlock || (() => console.warn('Duplicate not available'))}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            ) : (
+              <SortableContext
+                items={sortedSections.map(section => section.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="flex-1 space-y-2 overflow-y-auto pr-1">
+                  {sortedSections.map((section) => (
+                    <SectionItem
+                      key={section.id}
+                      section={section}
+                      isSelected={selectedBlockId === section.id}
+                      onSelect={setSelectedBlockId || (() => {})}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            )}
+          </DndContext>
+        </div>
       </div>
     );
   } catch (error) {
