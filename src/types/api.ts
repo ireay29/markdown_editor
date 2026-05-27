@@ -1,3 +1,6 @@
+import { Block } from './block';
+import { Position } from './editor';
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -21,6 +24,8 @@ export interface HeadingNode {
   level: number;
   title: string;
   line: number;
+  startOffset: number;
+  endOffset: number;
   children: HeadingNode[];
 }
 

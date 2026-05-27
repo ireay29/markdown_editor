@@ -38,7 +38,7 @@ const BlockItem: React.FC<BlockItemProps> = ({
   onDuplicate
 }) => {
   const [isHovered, setIsHovered] = useState(false);
-  
+
   const {
     attributes,
     listeners,
@@ -75,11 +75,11 @@ const BlockItem: React.FC<BlockItemProps> = ({
 
   const getBlockTypeLabel = () => {
     const type = block.type;
-    
+
     if (!type || !type.kind) {
       return '不明なブロック';
     }
-    
+
     switch (type.kind) {
       case 'heading':
         return `見出し ${type.level || ''}`;
@@ -108,11 +108,10 @@ const BlockItem: React.FC<BlockItemProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group relative border rounded-lg p-3 cursor-pointer transition-all ${
-        isSelected
-          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-          : 'border-secondary-200 dark:border-secondary-700 hover:border-secondary-300 dark:hover:border-secondary-600'
-      } ${isDragging ? 'shadow-lg' : ''}`}
+      className={`group relative border rounded-lg p-3 cursor-pointer transition-all ${isSelected
+        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+        : 'border-secondary-200 dark:border-secondary-700 hover:border-secondary-300 dark:hover:border-secondary-600'
+        } ${isDragging ? 'shadow-lg' : ''}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onSelect(block.id)}
@@ -121,9 +120,8 @@ const BlockItem: React.FC<BlockItemProps> = ({
       <div
         {...attributes}
         {...listeners}
-        className={`absolute left-1 top-1/2 transform -translate-y-1/2 cursor-grab active:cursor-grabbing transition-opacity ${
-          isHovered || isSelected || isDragging ? 'opacity-100' : 'opacity-0'
-        }`}
+        className={`absolute left-1 top-1/2 transform -translate-y-1/2 cursor-grab active:cursor-grabbing transition-opacity ${isHovered || isSelected || isDragging ? 'opacity-100' : 'opacity-0'
+          }`}
         data-block-drag-handle={block.id}
       >
         <GripVertical className="w-4 h-4 text-secondary-400" />
@@ -146,9 +144,8 @@ const BlockItem: React.FC<BlockItemProps> = ({
           </div>
 
           {/* Action Buttons */}
-          <div className={`flex items-center space-x-1 transition-opacity ${
-            isHovered || isSelected ? 'opacity-100' : 'opacity-0'
-          }`}>
+          <div className={`flex items-center space-x-1 transition-opacity ${isHovered || isSelected ? 'opacity-100' : 'opacity-0'
+            }`}>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -215,7 +212,7 @@ const SectionItem: React.FC<SectionItemProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
-  
+
   const {
     attributes,
     listeners,
@@ -232,18 +229,17 @@ const SectionItem: React.FC<SectionItemProps> = ({
   };
 
   const totalBlocks = section.blocks.length + 1; // +1 for header
-  const totalWords = section.blocks.reduce((sum, block) => sum + (block.content || '').split(/\s+/).length, 0) + 
-                     (section.headerBlock.content || '').split(/\s+/).length;
+  const totalWords = section.blocks.reduce((sum, block) => sum + (block.content || '').split(/\s+/).length, 0) +
+    (section.headerBlock.content || '').split(/\s+/).length;
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`group relative border rounded-lg p-3 cursor-pointer transition-all ${
-        isSelected
-          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-          : 'border-secondary-200 dark:border-secondary-700 hover:border-secondary-300 dark:hover:border-secondary-600'
-      } ${isDragging ? 'shadow-lg' : ''}`}
+      className={`group relative border rounded-lg p-3 cursor-pointer transition-all ${isSelected
+        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+        : 'border-secondary-200 dark:border-secondary-700 hover:border-secondary-300 dark:hover:border-secondary-600'
+        } ${isDragging ? 'shadow-lg' : ''}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onSelect(section.id)}
@@ -252,9 +248,8 @@ const SectionItem: React.FC<SectionItemProps> = ({
       <div
         {...attributes}
         {...listeners}
-        className={`absolute left-1 top-1/2 transform -translate-y-1/2 cursor-grab active:cursor-grabbing transition-opacity ${
-          isHovered || isSelected || isDragging ? 'opacity-100' : 'opacity-0'
-        }`}
+        className={`absolute left-1 top-1/2 transform -translate-y-1/2 cursor-grab active:cursor-grabbing transition-opacity ${isHovered || isSelected || isDragging ? 'opacity-100' : 'opacity-0'
+          }`}
       >
         <GripVertical className="w-4 h-4 text-secondary-400" />
       </div>
@@ -308,7 +303,7 @@ const SectionItem: React.FC<SectionItemProps> = ({
                 # {section.headerBlock.content}
               </span>
             </div>
-            
+
             {/* Section Blocks */}
             {section.blocks.map((block, index) => (
               <div key={block.id} className="text-xs text-secondary-600 dark:text-secondary-400 p-1 rounded bg-secondary-50 dark:bg-secondary-800">
@@ -341,7 +336,7 @@ export const BlockViewer: React.FC = () => {
       reorderBlocks,
       reorderSections
     } = store;
-    
+
     // Debug log (only when needed)
     // console.log('BlockViewer render:', { blocksLength: blocks?.length, selectedBlockId, dragMode });
 
@@ -373,9 +368,9 @@ export const BlockViewer: React.FC = () => {
           const newIndex = displaySections.findIndex((section) => section.id === over.id);
 
           if (oldIndex !== -1 && newIndex !== -1 && reorderSections) {
-            const newSections = arrayMove(displaySections, oldIndex, newIndex);
-            const newOrder = newSections.map(section => section.id);
-            reorderSections(newOrder);
+            // Call store action with active ID and target index (sibling index)
+            // Since displaySections lists all siblings (assuming H1 only), newIndex is the target Sibling Index.
+            reorderSections(active.id as string, newIndex);
           }
         }
       }
@@ -413,22 +408,20 @@ export const BlockViewer: React.FC = () => {
             <div className="flex items-center bg-secondary-200 dark:bg-secondary-700 rounded-md p-1">
               <button
                 onClick={() => setViewMode && setViewMode('blocks')}
-                className={`px-2 py-1 text-xs rounded transition-colors ${
-                  viewMode === 'blocks'
-                    ? 'bg-white dark:bg-secondary-600 text-secondary-900 dark:text-secondary-100 shadow-sm'
-                    : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-secondary-200'
-                }`}
+                className={`px-2 py-1 text-xs rounded transition-colors ${viewMode === 'blocks'
+                  ? 'bg-white dark:bg-secondary-600 text-secondary-900 dark:text-secondary-100 shadow-sm'
+                  : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-secondary-200'
+                  }`}
                 title="個別ブロック表示"
               >
                 <List className="w-3 h-3" />
               </button>
               <button
                 onClick={() => setViewMode && setViewMode('sections')}
-                className={`px-2 py-1 text-xs rounded transition-colors ${
-                  viewMode === 'sections'
-                    ? 'bg-white dark:bg-secondary-600 text-secondary-900 dark:text-secondary-100 shadow-sm'
-                    : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-secondary-200'
-                }`}
+                className={`px-2 py-1 text-xs rounded transition-colors ${viewMode === 'sections'
+                  ? 'bg-white dark:bg-secondary-600 text-secondary-900 dark:text-secondary-100 shadow-sm'
+                  : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-secondary-200'
+                  }`}
                 title="セクション別表示"
               >
                 <Grid3X3 className="w-3 h-3" />
@@ -436,11 +429,10 @@ export const BlockViewer: React.FC = () => {
             </div>
             <button
               onClick={() => setDragMode && setDragMode(!dragMode)}
-              className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                dragMode
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-secondary-200 text-secondary-700 hover:bg-secondary-300'
-              }`}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${dragMode
+                ? 'bg-primary-500 text-white'
+                : 'bg-secondary-200 text-secondary-700 hover:bg-secondary-300'
+                }`}
               title={dragMode ? 'ドラッグモードを無効にする' : 'ドラッグモードを有効にする'}
             >
               <GripVertical className="w-3 h-3" />
@@ -449,6 +441,7 @@ export const BlockViewer: React.FC = () => {
         </div>
 
         {/* Drag and Drop List */}
+<<<<<<< Updated upstream
         <div className="flex flex-1 flex-col overflow-hidden">
           <DndContext
             sensors={sensors}
@@ -492,6 +485,49 @@ export const BlockViewer: React.FC = () => {
             )}
           </DndContext>
         </div>
+=======
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          {viewMode === 'blocks' ? (
+            <SortableContext
+              items={sortedBlocks.map(block => block.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {sortedBlocks.map((block) => (
+                  <BlockItem
+                    key={block.id}
+                    block={block}
+                    isSelected={selectedBlockId === block.id}
+                    onSelect={setSelectedBlockId || (() => { })}
+                    onDelete={deleteBlock || (() => console.warn('Delete not available'))}
+                    onDuplicate={duplicateBlock || (() => console.warn('Duplicate not available'))}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          ) : (
+            <SortableContext
+              items={sortedSections.map(section => section.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {sortedSections.map((section) => (
+                  <SectionItem
+                    key={section.id}
+                    section={section}
+                    isSelected={selectedBlockId === section.id}
+                    onSelect={setSelectedBlockId || (() => { })}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          )}
+        </DndContext>
+>>>>>>> Stashed changes
       </div>
     );
   } catch (error) {

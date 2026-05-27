@@ -23,6 +23,8 @@ pub struct HeadingNode {
     pub level: u8,
     pub title: String,
     pub line: usize,
+    pub start_offset: usize,
+    pub end_offset: usize,
     pub children: Vec<HeadingNode>,
 }
 
@@ -322,6 +324,8 @@ fn extract_outline_advanced(content: &str) -> AppResult<Vec<HeadingNode>> {
                         level: current_heading_level,
                         title: current_heading_text.trim().to_string(),
                         line: line_number,
+                        start_offset: current_heading_start,
+                        end_offset: 0, // Calculated later
                         children: Vec::new(),
                     });
                 }
@@ -340,8 +344,29 @@ fn extract_outline_advanced(content: &str) -> AppResult<Vec<HeadingNode>> {
         }
     }
     
+    // Calculate section ranges before building hierarchy
+    calculate_section_ranges(&mut headings, content.len());
+    
     // 階層構造を構築
     build_heading_hierarchy(headings)
+}
+
+/// セクションの範囲（開始・終了オフセット）を計算
+fn calculate_section_ranges(headings: &mut Vec<HeadingNode>, content_len: usize) {
+    for i in 0..headings.len() {
+        let current_level = headings[i].level;
+        let mut end = content_len;
+        
+        // Find the next heading with same or higher (numerically smaller) level
+        for j in (i + 1)..headings.len() {
+            if headings[j].level <= current_level {
+                end = headings[j].start_offset;
+                break;
+            }
+        }
+        
+        headings[i].end_offset = end;
+    }
 }
 
 /// 見出しの階層構造を構築
@@ -631,6 +656,7 @@ pub struct BlockOperationResult {
     pub success: bool,
     pub updated_blocks: Vec<Block>,
     pub message: String,
+    pub new_content: String,
 }
 
 /// ブロックを削除
@@ -650,6 +676,7 @@ pub async fn delete_block(
             success: false,
             updated_blocks: blocks,
             message: "Block not found".to_string(),
+            new_content: content.clone(),
         });
     }
     
@@ -662,6 +689,7 @@ pub async fn delete_block(
         success: true,
         updated_blocks: blocks,
         message: "Block deleted successfully".to_string(),
+        new_content: content.clone(), // WARNING: delete_block does not yet perform string manipulation
     })
 }
 
@@ -702,16 +730,238 @@ pub async fn duplicate_block(
             success: true,
             updated_blocks: blocks,
             message: "Block duplicated successfully".to_string(),
+            new_content: content.clone(), // WARNING: duplicate_block does not yet perform string manipulation
         })
     } else {
         Ok(BlockOperationResult {
             success: false,
             updated_blocks: blocks,
             message: "Block not found".to_string(),
+            new_content: content.clone(),
         })
     }
 }
 
+/// セクションを移動（生の文字列操作）
+#[command]
+pub async fn move_section(
+    content: String,
+    section_id: String,
+    target_index: usize,
+) -> AppResult<BlockOperationResult> {
+    // 1. Parse blocks to get IDs and Levels
+    let blocks = extract_markdown_blocks(&content)?;
+    
+    // 2. Find target block
+    let target_pos = blocks.iter().position(|b| b.id == section_id);
+    
+    if let Some(idx) = target_pos {
+        let target_block = &blocks[idx];
+        
+        // Ensure it is a heading (or treat any block as section starter?)
+        // User said "Start with Heading 1, 2...", so it must be heading.
+        let (target_level, _target_title) = match &target_block.block_type {
+            BlockType::Heading { level, .. } => (*level, target_block.content.clone()),
+            _ => {
+                // Not a heading, cannot move as section?
+                return Ok(BlockOperationResult {
+                    success: false,
+                    updated_blocks: blocks,
+                    message: "Target is not a heading".to_string(),
+                    new_content: content.clone(),
+                });
+            }
+        };
+        
+        // 3. Identify Siblings (Headers of same level, share same parent context)
+        // Parent context means: No header with level < target_level between them.
+        
+        // Scan backwards to find "start of sibling group" (first sibling after a parent)
+        // Scan forwards to find "end of sibling group"
+        
+        let mut group_start = 0;
+        let mut group_end = blocks.len();
+        
+        // Find start: Look back for any header with level < target_level
+        for i in (0..idx).rev() {
+            if let BlockType::Heading { level, .. } = blocks[i].block_type {
+                if level < target_level {
+                    // Found parent container start
+                    // The sibling group starts AFTER this parent header
+                    // Wait, actually the sibling group starts at the next block?
+                    // No, the next block might be content. 
+                    // We are looking for SIBLING HEADERS.
+                    // The "scope" is constrained by this parent.
+                    group_start = i + 1;
+                    break;
+                }
+            }
+        }
+        
+        // Find end: Look forward for any header with level < target_level
+        for i in (idx + 1)..blocks.len() {
+             if let BlockType::Heading { level, .. } = blocks[i].block_type {
+                if level < target_level {
+                    group_end = i;
+                    break;
+                }
+            }
+        }
+        
+        // Now collect all siblings (same level headers) within [group_start, group_end)
+        let mut siblings: Vec<(usize, &Block)> = Vec::new(); // (index_in_blocks, Block)
+        for i in group_start..group_end {
+            if let BlockType::Heading { level, .. } = blocks[i].block_type {
+                if level == target_level {
+                    siblings.push((i, &blocks[i]));
+                }
+            }
+        }
+        
+        // Verify target is in siblings
+        let current_sibling_index = siblings.iter().position(|(_, b)| b.id == section_id);
+        
+        if let Some(curr_idx) = current_sibling_index {
+            if target_index >= siblings.len() {
+                 return Ok(BlockOperationResult {
+                    success: false,
+                    updated_blocks: blocks,
+                    message: "Target index out of bounds".to_string(),
+                    new_content: content.clone(),
+                });
+            }
+            
+            // 4. Calculate ranges to manipulate
+            // We need to move the WHOLE SECTION of the target.
+            // Section = [TargetHeader, NextHeaderOrScopeEnd)
+            
+            let calculate_section_end = |block_idx: usize, scope_end: usize| -> usize {
+                // Find next header with level <= target_level
+                // Actually within the scope, we stop at next sibling (same level) or scope end (lower level).
+                // But nested headers (higher level) are included.
+                for k in (block_idx + 1)..scope_end {
+                    if let BlockType::Heading { level, .. } = blocks[k].block_type {
+                        if level <= target_level {
+                            return blocks[k].position.start_offset;
+                        }
+                    }
+                }
+                // If we hit scope_end, we need the end offset of the last block in scope.
+                // Wait, scope_end refers to the start of the next parent/higher section.
+                // OR it is blocks.len().
+                if scope_end < blocks.len() {
+                    return blocks[scope_end].position.start_offset;
+                } else {
+                    return content.len(); // content.len() might be safer? Or last block's end.
+                }
+            };
+            
+            // Get range for TARGET
+            let target_block_idx = siblings[curr_idx].0;
+            let target_start_offset = blocks[target_block_idx].position.start_offset;
+            let target_end_offset = calculate_section_end(target_block_idx, group_end);
+            
+            let target_text = &content[target_start_offset..target_end_offset];
+            
+            // Construct new content
+            let mut new_content = String::new();
+            
+            // Where to insert?
+            // If moving DOWN (0->2): Insert AFTER the END of sibling[2]'s section?
+            // Or replace logic?
+            // "Insert before sibling[target_index]" (if moving up) or "Insert after sibling[target_index]"?
+            // Standard approach: Removing target, then inserting it at index.
+            
+            // If I remove target, the indices change.
+            // Let's use simple logic:
+            // Sibling 0, Sibling 1, Sibling 2...
+            // If I move Sib 0 to Pos 2 (make it 3rd):
+            // Order becomes: Sib 1, Sib 2, Sib 0.
+            // So I insert after Sib 2.
+            
+            // If I move Sib 2 to Pos 0:
+            // Order becomes: Sib 2, Sib 0, Sib 1.
+            // I insert before Sib 0.
+            
+            // Logic:
+            // 1. Identify Insertion Point.
+            //    If curr < target: We want to trigger insert AFTER sibling[target].
+            //    If curr > target: We want to trigger insert BEFORE sibling[target].
+            //    But wait, sibling[target] is the OLD sibling at that index.
+            
+            // Refined Logic:
+            // Target Index IS the destination index in the resulting list.
+            // If I move 0 -> 2:
+            // The item at 2 (Old Sib 2) will shift to 1? No.
+            // Old: [A, B, C]
+            // Move A to 2: [B, C, A]
+            // Target Index: 2.
+            // I insert AFTER Old Sib 2 (C).
+            
+            // If I move 2 -> 0:
+            // Old: [A, B, C]
+            // Move C to 0: [C, A, B]
+            // Target Index: 0.
+            // I insert BEFORE Old Sib 0 (A).
+            
+            let insert_pos;
+            if curr_idx < target_index {
+                // Moving down, insert after the target_index sibling's section end
+                let sibling_idx = siblings[target_index].0;
+                let sibling_end = calculate_section_end(sibling_idx, group_end);
+                insert_pos = sibling_end;
+            } else {
+                 // Moving up, insert before the target_index sibling's section start
+                 let sibling_idx = siblings[target_index].0;
+                 insert_pos = blocks[sibling_idx].position.start_offset;
+            }
+            
+            // Construct string
+            // Cases:
+            // 1. Target is before InsertPos (Moving Down)
+            //    [Prefix] [Target] [InBetween] [InsertPos ->] ...
+            //    Result: [Prefix] [InBetween] [Target] ...
+            // 2. Target is after InsertPos (Moving Up)
+            //    ... [InsertPos ->] [InBetween] [Target] [Suffix]
+            //    Result: ... [Target] [InBetween] [Suffix]
+            
+            let t_start = target_start_offset;
+            let t_end = target_end_offset;
+            
+            if t_start < insert_pos {
+                // Moving forward/down
+                new_content.push_str(&content[..t_start]);
+                new_content.push_str(&content[t_end..insert_pos]);
+                new_content.push_str(target_text);
+                new_content.push_str(&content[insert_pos..]);
+            } else {
+                // Moving backward/up
+                new_content.push_str(&content[..insert_pos]);
+                new_content.push_str(target_text);
+                new_content.push_str(&content[insert_pos..t_start]);
+                new_content.push_str(&content[t_end..]);
+            }
+
+            let updated_blocks = extract_markdown_blocks(&new_content)?; 
+            
+            return Ok(BlockOperationResult {
+                success: true,
+                updated_blocks,
+                message: "Section moved successfully".to_string(),
+                new_content,
+            });
+        }
+    }
+    
+    // Not found
+    let blocks = extract_markdown_blocks(&content)?;
+    Ok(BlockOperationResult {
+        success: false,
+        updated_blocks: blocks,
+        message: "Section not found".to_string(),
+        new_content: content.clone(),
+    })
+}
 /// Markdownの構文エラーを検出
 fn detect_syntax_errors(content: &str) -> Vec<SyntaxError> {
     let mut errors = Vec::new();

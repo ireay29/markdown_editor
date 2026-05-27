@@ -3,90 +3,87 @@ import type { Block, Document, HeadingNode, SyntaxError, Section } from '../type
 
 // Check if we're in Tauri environment
 const isTauriApp = () => {
-  return typeof window !== 'undefined' && 
-         window.__TAURI_INTERNALS__ !== undefined;
+  return typeof window !== 'undefined' &&
+    window.__TAURI_INTERNALS__ !== undefined;
 };
 
 // Analyze line break patterns between blocks in original content
 const analyzeLineBreakPatterns = (content: string, blocks: Block[]): Map<string, number> => {
   const patterns = new Map<string, number>();
   const lines = content.split('\n');
-  
+
   // Sort blocks by their position to match original order
-  const sortedBlocks = [...blocks].sort((a, b) => 
+  const sortedBlocks = [...blocks].sort((a, b) =>
     (a.position?.startLine || 0) - (b.position?.startLine || 0)
   );
-  
+
   for (let i = 0; i < sortedBlocks.length - 1; i++) {
     const currentBlock = sortedBlocks[i];
     const nextBlock = sortedBlocks[i + 1];
-    
+
     if (currentBlock.position && nextBlock.position) {
       const currentEndLine = currentBlock.position.endLine;
       const nextStartLine = nextBlock.position.startLine;
-      
-      // Count empty lines between blocks
-      let emptyLines = 0;
-      for (let lineNum = currentEndLine + 1; lineNum < nextStartLine; lineNum++) {
-        if (lineNum < lines.length && lines[lineNum].trim() === '') {
-          emptyLines++;
-        }
-      }
-      
-      // Store pattern: total newlines = empty lines + 1 (the basic newline)
-      const totalNewlines = emptyLines + 1;
+
+      const totalNewlines = nextBlock.position.startLine - currentBlock.position.endLine;
       patterns.set(`${currentBlock.id}->${nextBlock.id}`, totalNewlines);
     }
   }
-  
+
   return patterns;
 };
 
 // Reconstruct content with original line break patterns
 const reconstructContentWithOriginalSpacing = (
-  reorderedBlocks: Block[], 
-  lineBreakPatterns: Map<string, number>
+  reorderedBlocks: Block[],
+  lineBreakPatterns: Map<string, number>,
+  originalContent: string // Add original content parameter
 ): string => {
-  const reconstructBlock = (block: Block) => {
+  // Extract the original raw content for each block using position offsets
+  const getBlockRawContent = (block: Block): string => {
+    if (block.position?.startOffset !== undefined && block.position?.endOffset !== undefined) {
+      // Use the original offsets to get exact content from source
+      return originalContent.slice(block.position.startOffset, block.position.endOffset);
+    }
+
+    // Fallback: reconstruct the block manually
     if (block.type?.kind === 'heading') {
       const level = block.type.level || 1;
       const hashes = '#'.repeat(level);
       return `${hashes} ${block.content}`;
     }
-    return block.content;
+    return block.content || '';
   };
-  
+
   if (reorderedBlocks.length === 0) return '';
-  if (reorderedBlocks.length === 1) return reconstructBlock(reorderedBlocks[0]);
-  
+  if (reorderedBlocks.length === 1) return getBlockRawContent(reorderedBlocks[0]);
+
   const result: string[] = [];
-  
+
   for (let i = 0; i < reorderedBlocks.length; i++) {
     const currentBlock = reorderedBlocks[i];
-    result.push(reconstructBlock(currentBlock));
-    
+    const rawContent = getBlockRawContent(currentBlock);
+    result.push(rawContent.trimEnd()); // Remove trailing whitespace but keep content
+
     // Don't add spacing after the last block
     if (i < reorderedBlocks.length - 1) {
       const nextBlock = reorderedBlocks[i + 1];
       const patternKey = `${currentBlock.id}->${nextBlock.id}`;
-      
+
       // Try to find the original pattern
       let newlines = lineBreakPatterns.get(patternKey);
-      
+
       if (newlines === undefined) {
         // Fallback: use common markdown spacing conventions
-        if (currentBlock.type?.kind === 'paragraph') {
-          newlines = 2; // Blank line after paragraphs
-        } else {
-          newlines = 1; // Single line after headings, lists, etc.
-        }
+        // Use at least 2 newlines between blocks for readability
+        newlines = 2;
       }
-      
-      // Add the appropriate number of newlines
-      result.push('\n'.repeat(newlines));
+
+      // Add the appropriate number of newlines (minimum 1)
+      result.push('\n'.repeat(Math.max(1, newlines)));
     }
   }
-  
+
   return result.join('');
 };
 
@@ -147,7 +144,7 @@ interface EditorState {
   // Sections
   sections: Section[];
   viewMode: 'blocks' | 'sections';
-  
+
   // Actions
   setContent: (content: string) => void;
   setCurrentDocument: (document: Document | null) => void;
@@ -156,22 +153,26 @@ interface EditorState {
   setSyntaxErrors: (errors: SyntaxError[]) => void;
   setOutline: (outline: HeadingNode[]) => void;
   setCodeMirrorView: (view: any | null) => void;
-  
+
   // Section actions
   setSections: (sections: Section[]) => void;
   setViewMode: (mode: 'blocks' | 'sections') => void;
-  reorderSections: (newOrder: string[]) => Promise<void>;
-  
+  reorderSections: (activeId: string, targetIndex: number) => Promise<void>;
+
   // Block management actions
   reorderBlocks: (newOrder: string[]) => Promise<void>;
   deleteBlock: (blockId: string) => Promise<void>;
   duplicateBlock: (blockId: string) => Promise<void>;
-  
+
   // Block UI state
   selectedBlockId: string | null;
   setSelectedBlockId: (blockId: string | null) => void;
   dragMode: boolean;
   setDragMode: (enabled: boolean) => void;
+
+  // Reordering state - prevents parser from overwriting reordered blocks
+  isReordering: boolean;
+  setIsReordering: (reordering: boolean) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -188,7 +189,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   viewMode: 'blocks',
   selectedBlockId: null,
   dragMode: false,
-  
+  isReordering: false,
+
   // Actions
   setContent: (content) => set({ content, isModified: true }),
   setCurrentDocument: (document) => set({ currentDocument: document, isModified: false }),
@@ -200,93 +202,143 @@ export const useEditorStore = create<EditorState>((set) => ({
   setSyntaxErrors: (syntaxErrors) => set({ syntaxErrors }),
   setOutline: (outline: HeadingNode[]) => set({ outline }),
   setCodeMirrorView: (codeMirrorView) => set({ codeMirrorView }),
-  
+
   // Section actions
   setSections: (sections) => set({ sections }),
   setViewMode: (viewMode) => set({ viewMode }),
-  
-  reorderSections: async (newOrder) => {
-    const { sections, blocks, content } = useEditorStore.getState();
 
-    // Analyze original line break patterns
-    const lineBreakPatterns = analyzeLineBreakPatterns(content, blocks);
+  reorderSections: async (activeId, targetIndex) => {
+    if (!isTauriApp()) {
+      console.warn('reorderSections: Not in Tauri environment');
+      return;
+    }
 
-    // Find blocks that don't belong to any section (orphan blocks)
-    const blocksInSections = new Set<string>();
-    sections.forEach(section => {
-      blocksInSections.add(section.headerBlock.id);
-      section.blocks.forEach(block => blocksInSections.add(block.id));
-    });
+    const { content } = useEditorStore.getState();
 
-    const orphanBlocks = blocks.filter(block => !blocksInSections.has(block.id));
+    // Set reordering flag
+    set({ isReordering: true });
 
-    // Reorder sections
-    const reorderedSections = newOrder.map(id => {
-      const section = sections.find(s => s.id === id);
-      return section;
-    }).filter(Boolean);
-
-    // Flatten sections back to blocks in new order, preserving orphan blocks at the beginning
-    const reorderedBlocks: Block[] = [];
-
-    // Add orphan blocks first (blocks that are not in any section)
-    reorderedBlocks.push(...orphanBlocks);
-
-    // Add sections in new order
-    reorderedSections.forEach(section => {
-      if (section) {
-        reorderedBlocks.push(section.headerBlock);
-        reorderedBlocks.push(...section.blocks);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      interface BlockOperationResult {
+        success: boolean;
+        updated_blocks: Block[];
+        message: string;
+        new_content: string;
       }
-    });
 
-    // Reconstruct content with original spacing
-    const newContent = reconstructContentWithOriginalSpacing(reorderedBlocks, lineBreakPatterns);
-    
-    console.log('Reordering sections with preserved spacing:', {
-      originalContent: content,
-      newContent: newContent,
-      sectionOrder: reorderedSections.map(s => s.title),
-      detectedPatterns: Array.from(lineBreakPatterns.entries())
-    });
-    
-    set({
-      content: newContent,
-      blocks: reorderedBlocks,
-      sections: reorderedSections,
-      isModified: true
-    });
+      const result = await invoke<BlockOperationResult>('move_section', {
+        content,
+        sectionId: activeId,
+        targetIndex
+      });
+
+      if (result.success) {
+        // Update blocks and sections
+        const blocks = result.updated_blocks;
+        const sections = groupBlocksIntoSections(blocks);
+
+        set({
+          content: result.new_content,
+          blocks,
+          sections,
+          isModified: true
+        });
+      }
+    } catch (error) {
+      console.error('Failed to reorder section:', error);
+    } finally {
+      set({ isReordering: false });
+    }
   },
-    
+
   // Block management actions
   reorderBlocks: async (newOrder) => {
     const { content, blocks } = useEditorStore.getState();
-    
+
+    // Set reordering flag to prevent parser from overwriting
+    set({ isReordering: true });
+
     // Analyze original line break patterns
     const lineBreakPatterns = analyzeLineBreakPatterns(content, blocks);
-    
-    // Frontend-only reordering for now (since backend returns empty results)
-    const reorderedBlocks = newOrder.map(id => {
-      const block = blocks.find(b => b.id === id);
-      return block;
-    }).filter(Boolean); // Remove undefined entries
-    
+
+    // Frontend-only reordering with intelligent block following
+    // Algorithm:
+    // 1. Map all blocks to their "leader" (the block that appears in newOrder)
+    //    If a block is in newOrder, it is its own leader.
+    //    If a block is NOT in newOrder, it belongs to the nearest preceding block that IS in newOrder.
+    // 2. Reconstruct the full list based on newOrder leaders and their followers.
+
+    // Set of IDs included in the explicit new order
+    const orderedIds = new Set(newOrder);
+
+    // Group blocks: LeaderID -> List of Blocks (Leader itself + followers)
+    const blockGroups = new Map<string, Block[]>();
+
+    // First, initialize groups for all explicitly ordered blocks
+    newOrder.forEach(id => {
+      blockGroups.set(id, []);
+    });
+
+    // Special group for orphans (blocks needed before the first ordered block)
+    const orphans: Block[] = [];
+
+    let currentLeaderId: string | null = null;
+
+    // Iterate through original blocks to assign them to groups
+    blocks.forEach(block => {
+      if (orderedIds.has(block.id)) {
+        // This is a leader block
+        currentLeaderId = block.id;
+        const group = blockGroups.get(currentLeaderId);
+        if (group) {
+          group.push(block);
+        }
+      } else {
+        // This is a follower block
+        if (currentLeaderId && blockGroups.has(currentLeaderId)) {
+          // Attach to current leader
+          blockGroups.get(currentLeaderId)?.push(block);
+        } else {
+          // No leader yet, add to orphans
+          orphans.push(block);
+        }
+      }
+    });
+
+    // Reconstruct the full list
+    const finalBlocks: Block[] = [...orphans];
+
+    newOrder.forEach(leaderId => {
+      const group = blockGroups.get(leaderId);
+      if (group) {
+        finalBlocks.push(...group);
+      }
+    });
+
+    const reorderedBlocks = finalBlocks;
+
     // Reconstruct content with original spacing
-    const newContent = reconstructContentWithOriginalSpacing(reorderedBlocks, lineBreakPatterns);
-    
-    console.log('Reordering content with preserved spacing:', {
+    const newContent = reconstructContentWithOriginalSpacing(reorderedBlocks, lineBreakPatterns, content);
+
+    console.log('Reordering content with preserved follower blocks:', {
       originalContent: content,
       newContent: newContent,
-      blockOrder: reorderedBlocks.map(b => `${b.content?.substring(0, 20)}...`),
-      detectedPatterns: Array.from(lineBreakPatterns.entries())
+      orderedIds: Array.from(orderedIds),
+      totalBlocksAfter: reorderedBlocks.length
     });
-    
+
     set({
       content: newContent,
       blocks: reorderedBlocks,
       isModified: true
     });
-    
+
+    // Reset reordering flag after a delay (longer than debounce)
+    setTimeout(() => {
+      set({ isReordering: false });
+    }, 600);
+
     // Optional: Still try to call backend but don't rely on its result
     if (isTauriApp()) {
       try {
@@ -300,13 +352,13 @@ export const useEditorStore = create<EditorState>((set) => ({
       }
     }
   },
-  
+
   deleteBlock: async (blockId) => {
     if (!isTauriApp()) {
       console.warn('deleteBlock: Not in Tauri environment');
       return;
     }
-    
+
     const { content } = useEditorStore.getState();
     try {
       const { invoke } = await import('@tauri-apps/api/core');
@@ -325,13 +377,13 @@ export const useEditorStore = create<EditorState>((set) => ({
       console.error('Failed to delete block:', error);
     }
   },
-  
+
   duplicateBlock: async (blockId) => {
     if (!isTauriApp()) {
       console.warn('duplicateBlock: Not in Tauri environment');
       return;
     }
-    
+
     const { content } = useEditorStore.getState();
     try {
       const { invoke } = await import('@tauri-apps/api/core');
@@ -349,7 +401,8 @@ export const useEditorStore = create<EditorState>((set) => ({
       console.error('Failed to duplicate block:', error);
     }
   },
-  
+
   setSelectedBlockId: (blockId) => set({ selectedBlockId: blockId }),
   setDragMode: (dragMode) => set({ dragMode }),
+  setIsReordering: (isReordering) => set({ isReordering }),
 }));

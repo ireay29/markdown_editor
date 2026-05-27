@@ -14,8 +14,7 @@
       {
         "title": "md-editor",
         "width": 800,
-        "height": 600,
-        "devtools": true
+        "height": 600
       }
     ],
     "security": {

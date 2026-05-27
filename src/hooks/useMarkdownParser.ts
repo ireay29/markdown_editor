@@ -3,8 +3,8 @@ import { useEditorStore } from '../store/editorStore';
 
 // Check if we're in Tauri environment
 const isTauriApp = () => {
-  return typeof window !== 'undefined' && 
-         window.__TAURI_INTERNALS__ !== undefined;
+  return typeof window !== 'undefined' &&
+    window.__TAURI_INTERNALS__ !== undefined;
 };
 
 interface ParseResult {
@@ -23,7 +23,7 @@ interface ParseResult {
 }
 
 export const useMarkdownParser = () => {
-  const { content, setBlocks, setSyntaxErrors, setOutline } = useEditorStore();
+  const { content, setBlocks, setSyntaxErrors, setOutline, isReordering } = useEditorStore();
   const debounceTimeoutRef = useRef<NodeJS.Timeout>();
   const lastParsedContent = useRef<string>('');
 
@@ -32,11 +32,11 @@ export const useMarkdownParser = () => {
       // Try to import Tauri APIs dynamically
       const { invoke } = await import('@tauri-apps/api/core');
       console.log('Tauri APIs available, proceeding with markdown parsing');
-      
+
       const result: ParseResult = await invoke('parse_markdown', {
         content: markdownContent
       });
-      
+
       // Convert backend blocks to frontend format if needed
       console.log('Markdown parse result:', {
         blocks: result.blocks,
@@ -44,13 +44,13 @@ export const useMarkdownParser = () => {
         outline: result.outline,
         syntaxErrors: result.syntax_errors
       });
-      
+
       // Transform blocks from backend format to frontend format
       const transformedBlocks = result.blocks?.map((block: any) => {
         // Convert block_type structure to type structure
         const transformBlockType = (blockType: any) => {
           if (!blockType) return { kind: 'unknown' };
-          
+
           // Handle string-based block types
           if (typeof blockType === 'string') {
             switch (blockType) {
@@ -72,7 +72,7 @@ export const useMarkdownParser = () => {
                 return { kind: 'unknown' };
             }
           }
-          
+
           // Handle object-based block types
           if (blockType.Heading) {
             return { kind: 'heading', level: blockType.Heading.level };
@@ -95,23 +95,23 @@ export const useMarkdownParser = () => {
           if (blockType.HorizontalRule) {
             return { kind: 'hr' };
           }
-          
+
           return { kind: 'unknown' };
         };
-        
+
         return {
           ...block,
           type: transformBlockType(block.block_type)
         };
       }) || [];
-      
+
       console.log('Transformed blocks:', transformedBlocks);
 
       setBlocks(transformedBlocks);
       setSyntaxErrors(result.syntax_errors);
       setOutline(result.outline);
-      
-      return result;  
+
+      return result;
     } catch (error) {
       console.log('Not in Tauri environment or Tauri APIs unavailable:', error);
       // In browser environment, we can't parse markdown, so just clear the blocks
@@ -139,6 +139,12 @@ export const useMarkdownParser = () => {
 
   // Parse markdown when content changes
   useEffect(() => {
+    // Skip parsing during reordering to prevent overwriting reordered blocks
+    if (isReordering) {
+      console.log('Skipping parse during reordering');
+      return;
+    }
+
     if (content && content.trim().length > 0) {
       debouncedParse(content);
     }
@@ -149,7 +155,7 @@ export const useMarkdownParser = () => {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [content]);
+  }, [content, isReordering]);
 
   return {
     parseMarkdown,

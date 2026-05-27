@@ -29,6 +29,7 @@ pub fn run() {
             commands::markdown_parser::reorder_blocks,
             commands::markdown_parser::delete_block,
             commands::markdown_parser::duplicate_block,
+            commands::markdown_parser::move_section,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
